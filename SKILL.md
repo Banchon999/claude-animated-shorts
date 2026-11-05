@@ -18,7 +18,11 @@ The style reference is a channel studied privately (`references/`: STYLE_BIBLE.m
 User rules that apply:
 - No captions or labels in the video.
 - English only.
-- Voice: one steady tone.
+- Voice: one steady tone. **Default narrator (user's choice, 2026-11-05): Max's Thai voice** from his ElevenLabs
+  flow "Short Reels" (nodes "New tts node", model `eleven_v4`, Thai script with audio tags like `[serious]`,
+  `[curious]`, `[whisper]`). Reference sample: `voices/narrator_th.mp3` (97.7 s). Use this voice for every new clip
+  unless told otherwise; generate the narration with ElevenLabs `eleven_v4` in that voice, then make `words.json` from it.
+  If the voice id is not known yet, ask Max for the voice name once and write it here.
 - Jokes are researched real facts.
 - Standard mix: music +3 dB, SFX -6 dB, voice unchanged.
 - Final export 2K vertical: 1440x2560, `--scale 1.3333`.
