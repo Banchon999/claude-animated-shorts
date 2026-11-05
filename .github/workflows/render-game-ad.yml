@@ -1,0 +1,72 @@
+name: Render game ad (Lantern Leap, 2.5D)
+
+on:
+  workflow_dispatch:
+    inputs:
+      scale:
+        description: "Output scale: 1 = 1080x1920, 1.3333 = 1440x2560 (2K), 0.5 = quick preview"
+        default: "1"
+      crf:
+        description: "H.264 quality (lower = better, 16-23)"
+        default: "18"
+  push:
+    paths:
+      - "game-ad/**"
+      - ".github/workflows/render-game-ad.yml"
+
+concurrency:
+  group: render-game-ad-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: game-ad
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: game-ad/package-lock.json
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: System libraries for headless Chrome
+        working-directory: .
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 libgbm1 libasound2t64 \
+            libxrandr2 libxkbcommon0 libxfixes3 libxcomposite1 libxdamage1 libpango-1.0-0 libcairo2 libcups2 fonts-liberation
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          pip install numpy
+
+      - name: Synthesise the sound effects (SFX only, no voice)
+        run: npm run audio
+
+      - name: Render
+        run: |
+          npx remotion render src/index.ts LanternLeapAd out/lantern-leap-ad.mp4 \
+            --codec h264 --crf "${{ inputs.crf || '18' }}" --scale "${{ inputs.scale || '1' }}" \
+            --gl=swangle --concurrency=2 --timeout=120000
+
+      - name: Check the result
+        run: |
+          ffprobe -v error -show_entries stream=codec_type,width,height,duration -of default=nw=1 out/lantern-leap-ad.mp4
+          ls -lh out/lantern-leap-ad.mp4
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lantern-leap-ad
+          path: game-ad/out/lantern-leap-ad.mp4
+          if-no-files-found: error
+          retention-days: 30

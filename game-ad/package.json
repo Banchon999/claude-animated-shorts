@@ -1,0 +1,27 @@
+{
+  "name": "lantern-leap-ad",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "events": "node scripts/export-events.ts",
+    "audio": "npm run events && python3 audio/sfx.py",
+    "studio": "remotion studio src/index.ts",
+    "still": "remotion still src/index.ts LanternLeapAd out/still.png",
+    "render": "npm run audio && remotion render src/index.ts LanternLeapAd out/lantern-leap-ad.mp4 --codec h264 --crf 18 --gl=swangle"
+  },
+  "dependencies": {
+    "@react-three/fiber": "^8.18.0",
+    "@remotion/cli": "^4.0.541",
+    "@remotion/three": "^4.0.541",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "^4.0.541",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.31",
+    "@types/three": "^0.187.0",
+    "typescript": "^7.0.2"
+  }
+}
