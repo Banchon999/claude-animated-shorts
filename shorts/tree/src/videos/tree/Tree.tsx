@@ -53,7 +53,8 @@ const Inner: React.FC<{ id: number; kit: Kit }> = ({ id, kit }) => {
     tone: new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL }),
     grade: new GradeEffect(GRADES.day, GRADE_STRENGTH.day),
   }), [camera, scene]);
-  useEffect(() => () => fx.ink.dispose(), [fx]);
+  // R3F copies the dispose={null} prop below onto the object (fx.ink.dispose becomes null): call the class method
+  useEffect(() => () => InkPass.prototype.dispose.call(fx.ink), [fx]);
   const post = useMemo(() => (
     <EffectComposer multisampling={4}>
       {on.ink ? <primitive object={fx.ink} dispose={null} /> : <></>}
