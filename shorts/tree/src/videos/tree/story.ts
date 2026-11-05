@@ -218,7 +218,7 @@ const at = (p: V3, dx: number, dy: number, dz: number): V3 => [p[0] + dx, p[1] +
 
 // doctor marks (cast.ts reads them too)
 export const DOC_WALK0: V3 = [400.0, 0, -6.4], DOC_WALK1: V3 = [400.15, 0, -2.3];
-export const DOC_SCALE: V3 = [400.0, 0, -0.1];
+export const DOC_SCALE: V3 = [399.6, 0, -0.05]; // between the pot and the balance (out of the close balance frames)
 export const DOC_WATER: V3 = [398.05, 0, -0.05];
 export const DOC_FINAL: V3 = [400.1, 0, -0.35];
 export const WALK_A = 126, WALK_B = 214; // frames of the walk out of the door
