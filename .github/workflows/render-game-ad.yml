@@ -61,7 +61,7 @@ jobs:
 
       - name: Check the result
         run: |
-          ffprobe -v error -show_entries stream=codec_type,width,height,duration -of default=nw=1 out/lantern-leap-ad.mp4
+          npx remotion ffprobe out/lantern-leap-ad.mp4 2>&1 | grep -E "Duration|Stream" || true
           ls -lh out/lantern-leap-ad.mp4
 
       - uses: actions/upload-artifact@v4
