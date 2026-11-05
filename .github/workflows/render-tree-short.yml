@@ -1,0 +1,112 @@
+# Renders the "Made of Thin Air" short (shorts/tree) at 2K (1440x2560, 30 fps) on GitHub-hosted runners.
+# three.js runs in software WebGL (SwiftShader) because the runners have no GPU, so the 1800 frames are split into
+# CHUNKS parallel jobs; a join job stitches the parts losslessly, adds the synthesized sound mix and runs the
+# frame-by-frame QA. Download the result from the run's "TreeShort-2K" artifact.
+name: Render tree short (2K, split)
+
+on:
+  push:
+    branches: ["claude/**"]
+    paths: ["shorts/tree/**", ".github/workflows/render-tree-short.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: render-tree-short-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TOTAL: 1800
+  CHUNK: 90 # frames per job -> 20 jobs
+
+defaults:
+  run:
+    working-directory: shorts/tree
+
+jobs:
+  render:
+    name: render part ${{ matrix.part }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix:
+        part: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shorts/tree/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npx remotion browser ensure
+      - name: Render frames
+        run: |
+          A=$(( ${{ matrix.part }} * CHUNK )); B=$(( A + CHUNK - 1 )); [ $B -ge $TOTAL ] && B=$(( TOTAL - 1 ))
+          P=$(printf "%02d" ${{ matrix.part }})
+          echo "part $P: frames $A-$B"
+          npx remotion render src/index.ts TreeShort "out/part-$P.mp4" --frames=$A-$B \
+            --scale=1.3333333333333333 --codec=h264 --crf=16 --pixel-format=yuv420p \
+            --gl=swangle --concurrency=2 --timeout=600000 --log=info
+          ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames,width,height -of csv=p=0 "out/part-$P.mp4"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: part-${{ matrix.part }}
+          path: shorts/tree/out/part-*.mp4
+          retention-days: 3
+
+  audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy scipy
+      - run: mkdir -p out && python audio/tree_sfx.py out/mix.wav
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mix
+          path: shorts/tree/out/mix.wav
+          retention-days: 3
+
+  join:
+    needs: [render, audio]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+      - run: pip install numpy pillow
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: part-*
+          path: shorts/tree/out/parts
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: mix
+          path: shorts/tree/out
+      - name: Stitch parts + sound
+        run: |
+          ls out/parts | sort | sed "s|^|file 'parts/|; s|$|'|" > out/list.txt
+          cat out/list.txt
+          ffmpeg -v error -f concat -safe 0 -i out/list.txt -i out/mix.wav -map 0:v:0 -map 1:a:0 \
+            -c:v copy -c:a aac -b:a 320k -ar 48000 -shortest -movflags +faststart out/TreeShort_2K.mp4
+          N=$(ffprobe -v error -count_frames -select_streams v:0 -show_entries stream=nb_read_frames -of csv=p=0 out/TreeShort_2K.mp4)
+          echo "frames: $N"; [ "$N" = "$TOTAL" ] || { echo "expected $TOTAL frames"; exit 1; }
+      - name: Frame-by-frame QA
+        run: python scripts/short_qa.py out/TreeShort_2K.mp4 out/qa scripts/shots.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TreeShort-2K
+          path: shorts/tree/out/TreeShort_2K.mp4
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TreeShort-QA
+          path: shorts/tree/out/qa
+          retention-days: 30
